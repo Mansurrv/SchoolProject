@@ -4,6 +4,11 @@ import 'package:school_project/navbar/profilepage.dart';
 import 'package:school_project/navbar/searchpage.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+
 
 
 
@@ -120,7 +125,7 @@ class HomePage extends StatelessWidget {
                 // Перехожу на экран NewCatalogScreen
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => NewCatalogScreen()),
+                  MaterialPageRoute(builder: (context) => HomePage()),
                 );
               },
               icon: const Icon(Icons.home),
@@ -132,7 +137,7 @@ class HomePage extends StatelessWidget {
                 // Перехожу на экран NewCatalogScreen
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => HomePage()),
+                  MaterialPageRoute(builder: (context) => NewCatalogScreen()),
                 );
               },
               icon: const Icon(Icons.book),
@@ -158,6 +163,9 @@ class HomePage extends StatelessWidget {
   }
 }
 
+
+
+// Видеокурсы
 // Видеокурсы
 class VideoCoursesPage extends StatefulWidget {
   const VideoCoursesPage({super.key});
@@ -166,65 +174,55 @@ class VideoCoursesPage extends StatefulWidget {
   _VideoCoursesPageState createState() => _VideoCoursesPageState();
 }
 
-class Tutlist{
-  String fio;
-  String place;
-  String date;
-  String img;
-
-  Tutlist(this.fio, this.place, this.date, this.img);
-}
-
 class _VideoCoursesPageState extends State<VideoCoursesPage> {
-  final Map<String, List<Map<String, String>>> _videoCategories = {
-    'Урок 1': [
-      {'title': 'Әліппені үйренеміз.', 'url': 'https://www.youtube.com/watch?v=NnuKep4JJ-M',
-      'description': 'В этом уроке мы познакомимся с основами алфавита.'},
-    ],
-    'Урок 2': [
-      {'title': 'Видео 1', 'url': 'https://www.youtube.com/watch?v=kJQP7kiw5Fk'},
-    ],
-    'Урок 3': [
-      {'title': 'Видео 1', 'url': 'https://www.youtube.com/watch?v=3JZ_D3ELwOQ'},
-    ],
-    'Урок 4': [
-      {'title': 'Видео 1', 'url': 'https://www.youtube.com/watch?v=9bZkp7q19f0'},
-    ],
-    'Урок 5': [
-      {'title': 'Видео 1', 'url': 'https://www.youtube.com/watch?v=fRh_vgS2dFE'},
-    ],
-    'Урок 6': [
-      {'title': 'Видео 1', 'url': 'https://www.youtube.com/watch?v=RgKAFK5djSk'},
-    ],
-    'Урок 7': [
-      {'title': 'Видео 1', 'url': 'https://www.youtube.com/watch?v=3tmd-ClpJxA'},
-    ],
-  };
-
   late YoutubePlayerController _controller;
   String _currentVideoId = '';
   String _currentVideoTitle = '';
 
-
+  late Future<Map<String, List<Map<String, String>>>> _videoCategoriesFuture;
 
   @override
   void initState() {
     super.initState();
-    _initializeController();
+    _videoCategoriesFuture = _fetchVideoCategories();
   }
-  void _initializeController() {
-    final firstCategory = _videoCategories.values.first;
-    if (firstCategory.isNotEmpty) {
-      final firstVideo = firstCategory.first;
-      _currentVideoId = YoutubePlayer.convertUrlToId(firstVideo['url']!)!;
-      _currentVideoTitle = firstVideo['title']!;
-      _controller = YoutubePlayerController(
-        initialVideoId: _currentVideoId,
-        flags: const YoutubePlayerFlags(
-          autoPlay: false,
-          mute: false,
-        ),
-      );
+
+  Future<Map<String, List<Map<String, String>>>> _fetchVideoCategories() async {
+    final response = await http.get(Uri.parse('http://127.0.0.1:8000/videos'));
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+
+      Map<String, List<Map<String, String>>> categories = {};
+
+      for (var video in data) {
+        String category = video['category'] ?? 'Без категории';
+        if (!categories.containsKey(category)) {
+          categories[category] = [];
+        }
+        categories[category]!.add({
+          'title': video['title'] ?? '',
+          'url': video['url'] ?? '',
+          'description': video['description'] ?? '',
+        });
+      }
+
+      // Инициализация первого видео
+      if (categories.isNotEmpty) {
+        final firstCategory = categories.values.first;
+        if (firstCategory.isNotEmpty) {
+          final firstVideo = firstCategory.first;
+          _currentVideoId = YoutubePlayer.convertUrlToId(firstVideo['url']!)!;
+          _currentVideoTitle = firstVideo['title']!;
+          _controller = YoutubePlayerController(
+            initialVideoId: _currentVideoId,
+            flags: const YoutubePlayerFlags(autoPlay: false, mute: false),
+          );
+        }
+      }
+
+      return categories;
+    } else {
+      throw Exception('Ошибка загрузки видеокурсов');
     }
   }
 
@@ -241,54 +239,123 @@ class _VideoCoursesPageState extends State<VideoCoursesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: _videoCategories.keys.length,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Видеокурсы'),
-          bottom: TabBar(
-            isScrollable: true,
-            tabs: _videoCategories.keys
-                .map((category) => Tab(text: category))
-                .toList(),
-          ),
-        ),
-        body: TabBarView(
-          children: _videoCategories.keys.map((category) {
-            return ListView(
-              children: _videoCategories[category]!.map((video) {
-                return ListTile(
-                  title: Text(video['title']!),
-                  trailing: const Icon(Icons.play_arrow),
-                  onTap: () => _playVideo(video['url']!, video['title']!),
-                );
-              }).toList(),
-            );
-          }).toList(),
-        ),
-        bottomNavigationBar: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_currentVideoId.isNotEmpty)
-              YoutubePlayer(
-                controller: _controller,
-                showVideoProgressIndicator: true,
-              ),
-            if (_currentVideoTitle.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  _currentVideoTitle,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  textAlign: TextAlign.center,
+    return FutureBuilder<Map<String, List<Map<String, String>>>>(
+      future: _videoCategoriesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Видеокурсы')),
+            body: Center(child: Text('Ошибка: ${snapshot.error}')),
+          );
+        }
+
+        final videoCategories = snapshot.data!;
+        if (videoCategories.isEmpty) {
+          return const Scaffold(
+            body: Center(child: Text('Видеокурсы не найдены')),
+          );
+        }
+
+        return DefaultTabController(
+          length: videoCategories.keys.length,
+          child: Scaffold(
+            appBar: AppBar(
+              title: const Text('Видеокурсы'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.admin_panel_settings),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AdminVideoPage()),
+                    );
+                  },
                 ),
+              ],
+              bottom: TabBar(
+                isScrollable: true,
+                tabs: videoCategories.keys
+                    .map((category) => Tab(text: category))
+                    .toList(),
               ),
-          ],
-        ),
-      ),
+            ),
+            body: Column(
+              children: [
+                if (_currentVideoId.isNotEmpty)
+                  YoutubePlayer(
+                    controller: _controller,
+                    showVideoProgressIndicator: true,
+                  ),
+                if (_currentVideoTitle.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      _currentVideoTitle,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                Expanded(
+                  child: TabBarView(
+                    children: videoCategories.keys.map((category) {
+                      final videos = videoCategories[category]!;
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: videos.length,
+                        itemBuilder: (context, index) {
+                          final video = videos[index];
+                          return Card(
+                            color: const Color.fromRGBO(236, 178, 65, 1),
+                            elevation: 4,
+                            margin: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15)),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.all(12),
+                              title: Text(
+                                video['title']!,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16),
+                              ),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 4.0),
+                                child: Text(
+                                  video['description'] ?? '',
+                                  style: const TextStyle(
+                                      color: Colors.white70, fontSize: 13),
+                                ),
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.play_circle_fill,
+                                    color: Colors.white, size: 35),
+                                onPressed: () =>
+                                    _playVideo(video['url']!, video['title']!),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
+
 
 
 // Игры
@@ -381,6 +448,143 @@ class FAQPage extends StatelessWidget {
     );
   }
 }
+
+class AdminVideoPage extends StatefulWidget {
+  const AdminVideoPage({super.key});
+
+  @override
+  State<AdminVideoPage> createState() => _AdminVideoPageState();
+}
+
+class _AdminVideoPageState extends State<AdminVideoPage> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _categoryController = TextEditingController();
+  final TextEditingController _urlController = TextEditingController();
+
+  bool _isLoading = false;
+  String _message = '';
+
+  Future<void> _addVideo() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _message = '';
+    });
+
+    try {
+      final url = Uri.parse("http://127.0.0.1:8000/videos");
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "title": _titleController.text.trim(),
+          "description": _descriptionController.text.trim(),
+          "category": _categoryController.text.trim(),
+          "url": _urlController.text.trim(),
+        }),
+      );
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        setState(() {
+          _message = "✅ Видео успешно добавлено!";
+        });
+        _formKey.currentState!.reset();
+      } else {
+        setState(() {
+          _message = "❌ Ошибка при добавлении видео: ${response.body}";
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _message = "⚠️ Ошибка соединения: $e";
+      });
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Админка — Добавить видео"),
+        backgroundColor: const Color.fromRGBO(23, 21, 21, 1),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(labelText: "Название видео"),
+                validator: (value) =>
+                    value!.isEmpty ? "Введите название" : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: "Описание"),
+                validator: (value) =>
+                    value!.isEmpty ? "Введите описание" : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _categoryController,
+                decoration: const InputDecoration(labelText: "Категория"),
+                validator: (value) =>
+                    value!.isEmpty ? "Введите категорию" : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _urlController,
+                decoration:
+                    const InputDecoration(labelText: "Ссылка на YouTube"),
+                validator: (value) =>
+                    value!.isEmpty ? "Введите ссылку" : null,
+              ),
+              const SizedBox(height: 24),
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromRGBO(236, 178, 65, 1),
+                        padding: const EdgeInsets.all(14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: _addVideo,
+                      child: const Text(
+                        "Добавить видео",
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    ),
+              const SizedBox(height: 12),
+              if (_message.isNotEmpty)
+                Text(
+                  _message,
+                  style: TextStyle(
+                    color: _message.contains("✅")
+                        ? Colors.green
+                        : Colors.redAccent,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 
 void main() {
   runApp(MaterialApp(

@@ -231,3 +231,69 @@ def verify_code(request: CodeVerifyRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Code expired")
     
     return {"message": "Code verified successfully"}
+
+
+
+# --- Video Courses Model ---
+class VideoCourse(Base):
+    __tablename__ = "video_courses"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    url = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    category = Column(String, nullable=False)
+
+Base.metadata.create_all(bind=engine)
+
+
+# --- Pydantic Schema ---
+class VideoCourseCreate(BaseModel):
+    title: str
+    url: str
+    description: str | None = None
+    category: str
+
+
+class VideoCourseResponse(BaseModel):
+    id: int
+    title: str
+    url: str
+    description: str | None
+    category: str
+
+    class Config:
+        from_attributes = True
+
+
+# --- Endpoints for Video Courses ---
+
+@app.post("/videos", response_model=VideoCourseResponse)
+def create_video(video: VideoCourseCreate, db: Session = Depends(get_db)):
+    """Добавление нового видеокурса"""
+    new_video = VideoCourse(
+        title=video.title,
+        url=video.url,
+        description=video.description,
+        category=video.category
+    )
+    db.add(new_video)
+    db.commit()
+    db.refresh(new_video)
+    return new_video
+
+
+@app.get("/videos", response_model=list[VideoCourseResponse])
+def get_all_videos(db: Session = Depends(get_db)):
+    """Получение всех видеокурсов"""
+    videos = db.query(VideoCourse).all()
+    return videos
+
+
+@app.get("/videos/category/{category}", response_model=list[VideoCourseResponse])
+def get_videos_by_category(category: str, db: Session = Depends(get_db)):
+    """Получение видео по категории (например, Урок 1)"""
+    videos = db.query(VideoCourse).filter(VideoCourse.category == category).all()
+    if not videos:
+        raise HTTPException(status_code=404, detail="No videos found for this category")
+    return videos
+
