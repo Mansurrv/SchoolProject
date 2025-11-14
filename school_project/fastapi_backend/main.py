@@ -38,6 +38,29 @@ class ResetCode(Base):
     code = Column(String, nullable=False)
     expires_at = Column(Date, nullable=False)
 
+class LogopedNews(Base):
+    __tablename__ = "logoped_news"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=False)
+    image_url = Column(String, nullable=True)
+    created_at = Column(Date, default=date.today)
+
+class Banner(Base):
+    __tablename__ = "banners"
+    id = Column(Integer, primary_key=True, index=True)
+    image_url = Column(String, nullable=False)
+    created_at = Column(Date, default=date.today)
+
+class Book(Base):
+    __tablename__ = "books"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    author = Column(String, nullable=False)
+    file_url = Column(String, nullable=False)  # ссылка на PDF
+    created_at = Column(Date, default=date.today)
+
+
 Base.metadata.create_all(bind=engine)
 
 # --- Email configuration ---
@@ -103,6 +126,21 @@ class ForgotPasswordRequest(BaseModel):
 class CodeVerifyRequest(BaseModel):
     email: EmailStr
     code: str
+
+class BookCreate(BaseModel):
+    title: str
+    author: str
+    file_url: str
+
+class BookResponse(BaseModel):
+    id: int
+    title: str
+    author: str
+    file_url: str
+    created_at: date
+
+    class Config:
+        from_attributes = True
 
 # --- Endpoints ---
 @app.get("/")
@@ -297,3 +335,154 @@ def get_videos_by_category(category: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="No videos found for this category")
     return videos
 
+
+
+# --- News Model ---
+class News(Base):
+    __tablename__ = "news"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=False)
+    image_url = Column(String, nullable=True)
+    created_at = Column(Date, default=date.today)
+
+Base.metadata.create_all(bind=engine)
+
+# --- Schemas ---
+class NewsCreate(BaseModel):
+    title: str
+    description: str
+    image_url: str | None = None
+
+class NewsResponse(BaseModel):
+    id: int
+    title: str
+    description: str
+    image_url: str | None
+    created_at: date
+
+    class Config:
+        from_attributes = True
+
+# --- Endpoints ---
+@app.post("/news", response_model=NewsResponse)
+def create_news(news: NewsCreate, db: Session = Depends(get_db)):
+    new_item = News(
+        title=news.title,
+        description=news.description,
+        image_url=news.image_url
+    )
+    db.add(new_item)
+    db.commit()
+    db.refresh(new_item)
+    return new_item
+
+
+@app.get("/news", response_model=list[NewsResponse])
+def get_all_news(db: Session = Depends(get_db)):
+    return db.query(News).order_by(News.id.desc()).all()
+
+
+class LogopedNewsCreate(BaseModel):
+    title: str
+    description: str
+    image_url: str | None = None
+
+class LogopedNewsResponse(BaseModel):
+    id: int
+    title: str
+    description: str
+    image_url: str | None
+    created_at: date
+
+    class Config:
+        from_attributes = True
+
+
+@app.post("/logoped-news", response_model=LogopedNewsResponse)
+def create_logoped_news(news: LogopedNewsCreate, db: Session = Depends(get_db)):
+    new_item = LogopedNews(
+        title=news.title,
+        description=news.description,
+        image_url=news.image_url
+    )
+    db.add(new_item)
+    db.commit()
+    db.refresh(new_item)
+    return new_item
+
+@app.get("/logoped-news", response_model=list[LogopedNewsResponse])
+def get_all_logoped_news(db: Session = Depends(get_db)):
+    return db.query(LogopedNews).order_by(LogopedNews.id.desc()).all()
+
+
+# Add a new banner
+@app.post("/banners")
+def create_banner(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    ext = os.path.splitext(file.filename)[1]
+    file_path = os.path.join(UPLOAD_DIR, f"banner_{random.randint(1000,9999)}{ext}")
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    banner = Banner(image_url=f"/uploads/{os.path.basename(file_path)}")
+    db.add(banner)
+    db.commit()
+    db.refresh(banner)
+    return {"id": banner.id, "image_url": f"http://127.0.0.1:8000{banner.image_url}"}
+
+# Get all banners
+@app.get("/banners")
+def get_banners(db: Session = Depends(get_db)):
+    banners = db.query(Banner).all()
+    result = []
+    for b in banners:
+        # If image_url starts with http, leave it, else add local prefix
+        if b.image_url.startswith("http"):
+            url = b.image_url
+        else:
+            url = f"http://127.0.0.1:8000{b.image_url}"
+        result.append({"id": b.id, "image_url": url})
+    return result
+
+# Delete a banner
+@app.delete("/banners/{banner_id}")
+def delete_banner(banner_id: int, db: Session = Depends(get_db)):
+    banner = db.query(Banner).filter(Banner.id == banner_id).first()
+    if not banner:
+        raise HTTPException(status_code=404, detail="Banner not found")
+    
+    # Remove file only if it's a local file
+    if not banner.image_url.startswith("http"):
+        file_path = banner.image_url
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+    db.delete(banner)
+    db.commit()
+    return {"message": "Banner deleted"}
+
+# --- Add a new book ---
+@app.post("/books", response_model=BookResponse)
+def create_book(book: BookCreate, db: Session = Depends(get_db)):
+    new_book = Book(
+        title=book.title,
+        author=book.author,
+        file_url=book.file_url
+    )
+    db.add(new_book)
+    db.commit()
+    db.refresh(new_book)
+    return new_book
+
+# --- Get all books ---
+@app.get("/books", response_model=list[BookResponse])
+def get_all_books(db: Session = Depends(get_db)):
+    return db.query(Book).order_by(Book.id.desc()).all()
+
+# --- Get a book by id ---
+@app.get("/books/{book_id}", response_model=BookResponse)
+def get_book(book_id: int, db: Session = Depends(get_db)):
+    book = db.query(Book).filter(Book.id == book_id).first()
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+    return book

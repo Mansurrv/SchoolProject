@@ -2,52 +2,20 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:school_project/navbar/language_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
+import 'package:provider/provider.dart';
 
 import 'package:school_project/login and registr/login_screen.dart';
+import 'package:school_project/navbar/homepage.dart';
+import 'package:school_project/navbar/news_screen.dart';
+import 'package:school_project/navbar/searchpage.dart';
+import 'package:school_project/navbar/language_provider.dart';
 
 // 🌐 BASE URL for your FastAPI backend
-// Use "10.0.2.2" for Android emulator, "127.0.0.1" for desktop/web testing
 const String baseUrl = "http://127.0.0.1:8000";
-
-// 🗣️ Multi-language dictionary
-const Map<String, Map<String, String>> languages = {
-  'ru': {
-    'profile': 'Профиль',
-    'privacy_policy': 'Политика конфиденциальности',
-    'call_center': 'Call-Center',
-    'social_networks': 'Соц. Сети',
-    'logout': 'Выйти',
-    'choose_language': 'Выберите язык',
-    'instagram': 'Instagram',
-    'telegram': 'Telegram',
-    'vk': 'VK',
-  },
-  'en': {
-    'profile': 'Profile',
-    'privacy_policy': 'Privacy Policy',
-    'call_center': 'Call-Center',
-    'social_networks': 'Social Networks',
-    'logout': 'Logout',
-    'choose_language': 'Choose language',
-    'instagram': 'Instagram',
-    'telegram': 'Telegram',
-    'vk': 'VK',
-  },
-  'kk': {
-    'profile': 'Профиль',
-    'privacy_policy': 'Құпиялылық саясаты',
-    'call_center': 'Call-Center',
-    'social_networks': 'Әлеуметтік желілер',
-    'logout': 'Шығу',
-    'choose_language': 'Тілді таңдаңыз',
-    'instagram': 'Instagram',
-    'telegram': 'Telegram',
-    'vk': 'VK',
-  },
-};
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -57,7 +25,6 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  String currentLang = 'ru';
   String currentLogin = '';
   String name = '';
   String surname = '';
@@ -103,8 +70,6 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  String t(String key) => languages[currentLang]?[key] ?? key;
-
   // 🚪 Logout
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
@@ -134,48 +99,52 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // 🌍 Language selection
-  void _showLanguageDialog() {
+  // 🌍 Language selection - UPDATED TO CHANGE WHOLE APP
+  void _showLanguageDialog(BuildContext context) {
+    final languageProvider = Provider.of<LanguageProvider>(context, listen: false);
+    
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color.fromRGBO(23, 21, 21, 1),
-        title: Text(t('choose_language'),
+        title: Text(languageProvider.translate('choose_language'),
             style: const TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _languageOption('Русский', 'ru'),
-            _languageOption('English', 'en'),
-            _languageOption('Қазақша', 'kk'),
+            _languageOption('Русский', 'ru', languageProvider),
+            _languageOption('English', 'en', languageProvider),
+            _languageOption('Қазақша', 'kk', languageProvider),
           ],
         ),
       ),
     );
   }
 
-  ListTile _languageOption(String title, String code) => ListTile(
+  ListTile _languageOption(String title, String code, LanguageProvider languageProvider) => ListTile(
         title: Text(title, style: const TextStyle(color: Colors.white)),
         onTap: () {
-          setState(() => currentLang = code);
+          languageProvider.setLanguage(code); // This will update the whole app
           Navigator.pop(context);
         },
       );
 
   // 📱 Social networks
-  void _showSocialDialog() {
+  void _showSocialDialog(BuildContext context) {
+    final languageProvider = Provider.of<LanguageProvider>(context, listen: false);
+    
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color.fromRGBO(23, 21, 21, 1),
-        title: Text(t('social_networks'),
+        title: Text(languageProvider.translate('social_networks'),
             style: const TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _socialTile(Icons.camera_alt, t('instagram'), 'https://instagram.com'),
-            _socialTile(Icons.telegram, t('telegram'), 'https://t.me'),
-            _socialTile(Icons.vpn_lock, t('vk'), 'https://vk.com'),
+            _socialTile(Icons.camera_alt, languageProvider.translate('instagram'), 'https://instagram.com'),
+            _socialTile(Icons.telegram, languageProvider.translate('telegram'), 'https://t.me'),
+            _socialTile(Icons.vpn_lock, languageProvider.translate('vk'), 'https://vk.com'),
           ],
         ),
       ),
@@ -239,76 +208,143 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // 🧱 UI
+  // 🧱 UI - UPDATED TO USE CONSUMER FOR REACTIVE UPDATES
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color.fromRGBO(23, 21, 21, 1),
-      appBar: AppBar(
-        title: Text(t('profile')),
-        backgroundColor: const Color.fromRGBO(23, 21, 21, 1),
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              )
-            : Column(
-                children: [
-                  GestureDetector(
-                    onTap: _pickAndUploadImage,
-                    child: Stack(
-                      alignment: Alignment.center,
+    return Consumer<LanguageProvider>(
+      builder: (context, languageProvider, child) {
+        return Scaffold(
+          backgroundColor: const Color.fromRGBO(23, 21, 21, 1),
+          appBar: AppBar(
+            title: Text(languageProvider.translate('profile')),
+            backgroundColor: const Color.fromRGBO(23, 21, 21, 1),
+            foregroundColor: Colors.white,
+            automaticallyImplyLeading: false,
+          ),
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: isLoading
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircleAvatar(
-                          radius: 45,
-                          backgroundImage: imageUrl != null
-                              ? NetworkImage(imageUrl!)
-                              : const AssetImage('assets/desktop/1photo.png')
-                                  as ImageProvider,
+                        const CircularProgressIndicator(color: Colors.white),
+                        const SizedBox(height: 16),
+                        Text(
+                          languageProvider.translate('loading'),
+                          style: const TextStyle(color: Colors.white),
                         ),
-                        if (isUploading)
-                          const CircularProgressIndicator(color: Colors.white),
                       ],
                     ),
+                  )
+                : Column(
+                    children: [
+                      GestureDetector(
+                        onTap: _pickAndUploadImage,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CircleAvatar(
+                              radius: 45,
+                              backgroundImage: imageUrl != null
+                                  ? NetworkImage(imageUrl!)
+                                  : const AssetImage('assets/desktop/1photo.png')
+                                      as ImageProvider,
+                            ),
+                            if (isUploading)
+                              const CircularProgressIndicator(color: Colors.white),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        '$name $surname',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      Expanded(
+                        child: ListView(
+                          children: [
+                            _menuTile(
+                              Icons.language, 
+                              languageProvider.translate('choose_language'),
+                              () => _showLanguageDialog(context),
+                            ),
+                            _menuTile(
+                              Icons.security, 
+                              languageProvider.translate('privacy_policy'),
+                              () => _openUrl('https://yourwebsite.com/privacy'),
+                            ),
+                            _menuTile(
+                              Icons.call, 
+                              languageProvider.translate('call_center'),
+                              () => _callNumber('+77001234567'),
+                            ),
+                            _menuTile(
+                              Icons.people, 
+                              languageProvider.translate('social_networks'),
+                              () => _showSocialDialog(context),
+                            ),
+                            _menuTile(
+                              Icons.exit_to_app, 
+                              languageProvider.translate('logout'), 
+                              _logout,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '$name $surname',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  Expanded(
-                    child: ListView(
-                      children: [
-                        _menuTile(Icons.language, t('choose_language'),
-                            _showLanguageDialog),
-                        _menuTile(Icons.security, t('privacy_policy'),
-                            () => _openUrl('https://yourwebsite.com/privacy')),
-                        _menuTile(Icons.call, t('call_center'),
-                            () => _callNumber('+77001234567')),
-                        _menuTile(Icons.people, t('social_networks'),
-                            _showSocialDialog),
-                        _menuTile(Icons.exit_to_app, t('logout'), _logout),
-                      ],
-                    ),
-                  ),
-                ],
+          ),
+          bottomNavigationBar: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color.fromRGBO(23, 21, 21, 1),
+              border: Border(
+                top: BorderSide(
+                  color: Colors.grey[800]!,
+                  width: 1,
+                ),
               ),
-      ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _navButton(context, Icons.apps_outlined, 45, CatalogScreens(), languageProvider.translate('news')),
+                _navButton(context, Icons.search, 45, SearchPage(), languageProvider.translate('search')),
+                _navButton(context, Icons.home, 45, HomePage(), languageProvider.translate('home')),
+                _navButton(context, Icons.library_books, 45, LibraryPage(), languageProvider.translate('library')),
+                _navButton(context, Icons.account_circle, 35, ProfilePage(), languageProvider.translate('profile')),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  ListTile _menuTile(IconData icon, String title, Function() onTap) => ListTile(
+  Widget _menuTile(IconData icon, String title, Function() onTap) => ListTile(
         leading: Icon(icon, color: const Color.fromRGBO(236, 178, 65, 1)),
-        title:
-            Text(title, style: const TextStyle(color: Colors.white, fontSize: 16)),
+        title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 16)),
         onTap: onTap,
       );
+
+  Widget _navButton(BuildContext context, IconData icon, double size, Widget page, String tooltip) {
+    return Tooltip(
+      message: tooltip,
+      child: IconButton(
+        onPressed: () => Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => page),
+        ),
+        icon: Icon(icon),
+        iconSize: size,
+        color: const Color.fromRGBO(236, 178, 65, 1),
+      ),
+    );
+  }
 }

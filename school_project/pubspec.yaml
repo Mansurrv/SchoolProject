@@ -36,6 +36,8 @@ dependencies:
   url_launcher: ^6.1.10
   image_picker: ^1.2.0
   cached_network_image: ^3.2.3
+  intl: ^0.18.1
+  provider: ^6.1.1
 
   
 

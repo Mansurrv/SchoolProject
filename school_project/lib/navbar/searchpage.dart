@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:school_project/navbar/news_screen.dart'; // Import your news screen
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -67,55 +68,154 @@ class _SearchPageState extends State<SearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color.fromRGBO(23, 21, 21, 1),
       appBar: AppBar(
-        title: const Text('Поиск'),
+        title: const Text(
+          'Поиск',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: const Color.fromRGBO(23, 21, 21, 1),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+          onPressed: () {
+            // Navigate back to News Screen (CatalogScreens)
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => CatalogScreens()),
+            );
+          },
         ),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Container(
         color: const Color.fromRGBO(23, 21, 21, 1),
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            TextField(
-              controller: _searchController,
-              onChanged: (query) => _filterSearchResults(query),
-              decoration: const InputDecoration(
-                labelText: 'Введите запрос для поиска',
-                labelStyle: TextStyle(color: Color.fromRGBO(236, 178, 65, 1)),
-                prefixIcon: Icon(Icons.search, color: Color.fromRGBO(236, 178, 65, 1)),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color.fromRGBO(236, 178, 65, 1)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color.fromRGBO(236, 178, 65, 1)),
+            // Search Field
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[900],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color.fromRGBO(236, 178, 65, 1),
+                  width: 1,
                 ),
               ),
-              style: const TextStyle(color: Color.fromRGBO(236, 178, 65, 1)),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (query) => _filterSearchResults(query),
+                decoration: const InputDecoration(
+                  hintText: 'Введите запрос для поиска...',
+                  hintStyle: TextStyle(color: Colors.grey),
+                  prefixIcon: Icon(Icons.search, color: Color.fromRGBO(236, 178, 65, 1)),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+                style: const TextStyle(color: Colors.white),
+                cursorColor: const Color.fromRGBO(236, 178, 65, 1),
+              ),
             ),
+            
             const SizedBox(height: 20),
+            
+            // Results Section
             Expanded(
               child: isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            color: Color.fromRGBO(236, 178, 65, 1),
+                            strokeWidth: 3,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            "Загрузка...",
+                            style: TextStyle(color: Colors.grey, fontSize: 16),
+                          ),
+                        ],
+                      ),
                     )
                   : _filteredItems.isEmpty
-                      ? const Center(
-                          child: Text(
-                            "Ничего не найдено",
-                            style: TextStyle(color: Colors.white, fontSize: 16),
-                          ),
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.search_off,
+                              size: 64,
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              "Ничего не найдено",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              "Попробуйте изменить поисковый запрос",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         )
                       : ListView.builder(
                           itemCount: _filteredItems.length,
                           itemBuilder: (context, index) {
-                            return ListTile(
-                              title: Text(
-                                _filteredItems[index],
-                                style: const TextStyle(color: Colors.white),
+                            return Card(
+                              color: Colors.grey[900],
+                              margin: const EdgeInsets.only(bottom: 8),
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                leading: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: const Color.fromRGBO(236, 178, 65, 0.2),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.description,
+                                    color: const Color.fromRGBO(236, 178, 65, 1),
+                                    size: 20,
+                                  ),
+                                ),
+                                title: Text(
+                                  _filteredItems[index],
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                trailing: Icon(
+                                  Icons.arrow_forward_ios,
+                                  color: Colors.grey[600],
+                                  size: 16,
+                                ),
+                                onTap: () {
+                                  // Handle item tap
+                                  print('Tapped: ${_filteredItems[index]}');
+                                },
                               ),
                             );
                           },
@@ -126,10 +226,4 @@ class _SearchPageState extends State<SearchPage> {
       ),
     );
   }
-}
-
-void main() {
-  runApp(const MaterialApp(
-    home: SearchPage(),
-  ));
 }
